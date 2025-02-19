@@ -5,12 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="origin">
     <title>Blog Admin Panel</title>
-    <link rel="stylesheet" href="./admin.css">
+    <link rel="stylesheet" href="/admin/admin.css">
     <!-- Load TinyMCE first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <!-- Load admin.js after TinyMCE -->
-    <script src="./admin.js" defer></script>
+    <script src="/admin/admin.js" defer></script>
+    <script>
+        // Check authentication before page loads
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.log('No token found, redirecting to login');
+                window.location.href = 'login.html';
+                return;
+            }
+            console.log('Token found, staying on admin page');
+        }
+    </script>
 </head>
 <body>
     <div class="admin-container">
@@ -22,53 +34,44 @@
             </div>
         </header>
 
-        <div class="posts-list">
-            <!-- Posts will be listed here -->
-        </div>
+        <section id="postFormSection" style="display: none;">
+            <h2>Create New Post</h2>
+            <form id="postForm">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" required>
+                        <option value="Technology">Technology</option>
+                        <option value="Lifestyle">Lifestyle</option>
+                        <option value="Travel">Travel</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="content">Content</label>
+                    <textarea id="content" name="content" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="image">Image URL</label>
+                    <input type="text" id="image" name="image">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Submit</button>
+                    <button type="button" id="cancelBtn" class="btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </section>
 
-        <div id="postModal" class="modal">
-            <div class="modal-content">
-                <h2>Create New Post</h2>
-                <form id="postForm">
-                    <div class="form-group">
-                        <label for="title">Title</label>
-                        <input type="text" id="title" name="title" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="category">Category</label>
-                        <select id="category" name="category" required>
-                            <option value="">Select a category</option>
-                            <option value="Technology">Technology</option>
-                            <option value="Programming">Programming</option>
-                            <option value="Design">Design</option>
-                            <option value="Career">Career</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="content">Content</label>
-                        <textarea id="content" name="content"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tags">Tags (comma-separated)</label>
-                        <input type="text" id="tags" name="tags">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="imageUrl">Image URL</label>
-                        <input type="url" id="imageUrl" name="imageUrl">
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">Save</button>
-                        <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
-                    </div>
-                </form>
+        <section class="posts-section">
+            <h2>Posts</h2>
+            <div class="posts-list">
+                <!-- Posts will be dynamically added here -->
             </div>
-        </div>
+        </section>
     </div>
+
+    <script src="admin.js"></script>
 </body>
 </html> 

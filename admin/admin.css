@@ -1,12 +1,13 @@
 :root {
-    --primary: #6366f1;
-    --secondary: #4f46e5;
-    --background: #f9fafb;
-    --surface: #ffffff;
-    --text: #1f2937;
-    --text-secondary: #6b7280;
-    --error: #ef4444;
-    --success: #10b981;
+    --primary: #4A90E2;
+    --secondary: #6B7280;
+    --success: #10B981;
+    --danger: #EF4444;
+    --background: #F3F4F6;
+    --surface: #FFFFFF;
+    --text: #1F2937;
+    --text-secondary: #6B7280;
+    --border: #E5E7EB;
 }
 
 html, body {
@@ -17,7 +18,7 @@ html, body {
 }
 
 body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background: var(--background);
     color: var(--text);
 }
@@ -125,14 +126,68 @@ body {
 }
 
 .post-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: 1px solid #ddd;
     padding: 15px;
     margin-bottom: 15px;
+    border-radius: 4px;
+    position: relative;
+}
+
+.post-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.post-status.published {
+    background-color: #4caf50;
+    color: white;
+}
+
+.post-status.draft {
+    background-color: #ff9800;
+    color: white;
+}
+
+.post-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-edit {
+    background-color: #2196f3;
+    color: white;
+}
+
+.btn-publish {
+    background-color: #4caf50;
+    color: white;
+}
+
+.btn-publish.unpublish {
+    background-color: #ff9800;
+}
+
+.btn-delete {
+    background-color: #f44336;
+    color: white;
+}
+
+button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    opacity: 0.9;
 }
 
 .post-header {
@@ -151,29 +206,6 @@ body {
 
 .post-meta span {
     margin-right: 15px;
-}
-
-.post-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-edit, .btn-delete {
-    padding: 5px 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.btn-edit {
-    background-color: var(--primary);
-    color: white;
-}
-
-.btn-delete {
-    background-color: #ef4444;
-    color: white;
 }
 
 .category {
@@ -324,36 +356,80 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: var(--background);
+    background-color: var(--background);
 }
 
-.login-form {
+.login-box {
     background: var(--surface);
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     width: 100%;
     max-width: 400px;
 }
 
-.login-form h2 {
-    margin-bottom: 30px;
+.login-box h2 {
+    margin: 0 0 1.5rem;
+    color: var(--text);
     text-align: center;
 }
 
-/* Add to your existing admin.css */
-.login-error {
-    color: #ef4444;
-    background-color: #fee2e2;
-    border: 1px solid #fecaca;
-    padding: 10px;
-    border-radius: 4px;
-    margin-bottom: 15px;
+.error-message {
     display: none;
+    background-color: #FEE2E2;
+    color: #DC2626;
+    padding: 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    text-align: center;
 }
 
-.login-form button:disabled {
-    opacity: 0.7;
+.error-message.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+button[type="submit"] {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button[type="submit"]:hover {
+    background-color: #357ABD;
+}
+
+button[type="submit"]:disabled {
+    background-color: var(--secondary);
     cursor: not-allowed;
 }
 
@@ -383,4 +459,88 @@ option[value=""][disabled] {
 
 option {
     color: var(--text);
+}
+
+/* Add to your existing admin.css */
+.btn-publish {
+    background-color: #10B981;
+    color: white;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.btn-publish.unpublish {
+    background-color: #9CA3AF;
+}
+
+.status {
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+}
+
+.status.published {
+    background-color: #10B981;
+    color: white;
+}
+
+.status.draft {
+    background-color: #9CA3AF;
+    color: white;
+}
+
+/* Add to your existing admin.css */
+.posts-section {
+    margin: 20px;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.posts-section h2 {
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+.posts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.post-item {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.post-header {
+    flex: 1;
+}
+
+.post-header h3 {
+    margin: 0 0 5px 0;
+    color: var(--text);
+}
+
+.post-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.post-actions {
+    display: flex;
+    gap: 8px;
 } 

@@ -1,90 +1,60 @@
 class LoginManager {
     constructor() {
-        this.setupEventListeners();
-        // Check if we were redirected due to auth failure
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('auth') === 'failed') {
-            this.showError('Session expired. Please login again.');
+        this.form = document.getElementById('loginForm');
+        if (this.form) {
+            this.form.addEventListener('submit', (e) => this.handleLogin(e));
         }
-    }
-
-    setupEventListeners() {
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleLogin(e);
-        });
+        console.log('LoginManager initialized');
     }
 
     async handleLogin(e) {
-        const form = e.target;
-        const formData = new FormData(form);
-        const username = formData.get('username');
-        const password = formData.get('password');
+        e.preventDefault();
+        console.log('Form submitted');
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
 
-        // Add loading state
-        const submitButton = form.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton.textContent;
-        submitButton.textContent = 'Logging in...';
-        submitButton.disabled = true;
+        console.log('Credentials:', { username, password });
 
         try {
-            console.log('Sending login request...'); // Debug log
-
             const response = await fetch('http://localhost:5000/api/admin/login', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password }),
-                credentials: 'include' // Important for cookies
+                body: JSON.stringify({ username, password })
             });
 
+            console.log('Response received:', response.status);
+            
             const data = await response.json();
-            console.log('Login response:', data); // Debug log
+            console.log('Response data:', data);
 
-            if (!response.ok) {
+            if (response.ok) {
+                console.log('Login successful');
+                // Store the token
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                // Use the full URL path for redirect
+                window.location.href = 'http://localhost:5000/admin/index.html';
+                return false; // Prevent any further form submission
+            } else {
                 throw new Error(data.message || 'Login failed');
             }
-
-            if (!data.token) {
-                throw new Error('No token received');
-            }
-
-            // Store the token
-            const tokenWithBearer = `Bearer ${data.token}`;
-            console.log('Storing token:', tokenWithBearer); // Debug log
-            localStorage.setItem('adminToken', tokenWithBearer);
-
-            // Test if token was stored
-            console.log('Stored token:', localStorage.getItem('adminToken')); // Verify storage
-
-            // Redirect to admin panel
-            window.location.href = './index.html';
+            
         } catch (error) {
             console.error('Login error:', error);
-            this.showError(error.message || 'Login failed. Please check your credentials.');
-        } finally {
-            // Reset button state
-            submitButton.textContent = originalButtonText;
-            submitButton.disabled = false;
+            alert('Login failed: ' + error.message);
         }
-    }
-
-    showError(message) {
-        let errorDiv = document.querySelector('.login-error');
-        if (!errorDiv) {
-            errorDiv = document.createElement('div');
-            errorDiv.className = 'login-error';
-            document.querySelector('.login-form').insertBefore(
-                errorDiv,
-                document.querySelector('button')
-            );
-        }
-        errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
+        return false; // Prevent form submission
     }
 }
 
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new LoginManager();
-}); 
+});
+
+// Debug: Check if the script is loaded
+console.log('Login.js loaded'); 

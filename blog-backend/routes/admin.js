@@ -4,43 +4,56 @@ const Post = require('../models/Post');
 const auth = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 const jwt = require('jsonwebtoken');
+const io = require('../config/io');
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
-// Login route - NO AUTH MIDDLEWARE
+// Add these at the top of your file
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; // In production, use environment variable
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // In production, use hashed password
+
+// Login route
 router.post('/login', async (req, res) => {
     try {
+        console.log('Login request received:', req.body);
         const { username, password } = req.body;
-        
-        console.log('Login attempt:', { username }); // Debug log
 
-        // Check if credentials are present
+        // Validate input
         if (!username || !password) {
-            return res.status(400).json({ message: 'Username and password are required' });
+            console.log('Missing credentials');
+            return res.status(400).json({ message: 'Please provide username and password' });
         }
 
-        // Replace with your actual admin credentials
-        if (username === 'admin' && password === 'admin123') {
-            if (!process.env.JWT_SECRET) {
-                console.error('JWT_SECRET is not set');
-                return res.status(500).json({ message: 'Server configuration error' });
-            }
-
-            const token = jwt.sign(
-                { username: username },
-                process.env.JWT_SECRET,
-                { expiresIn: '24h' }
-            );
-            
-            console.log('Login successful for:', username);
-            return res.json({ 
-                token,
-                message: 'Login successful' 
-            });
-        } else {
-            console.log('Invalid credentials for:', username);
+        // Check credentials
+        if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+            console.log('Invalid credentials');
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-    } catch (err) {
-        console.error('Login error:', err);
+
+        console.log('Login successful for user:', username);
+
+        // Create token
+        const token = jwt.sign(
+            { userId: 'admin' },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        // Send response
+        const responseData = {
+            token,
+            user: {
+                username: ADMIN_USERNAME,
+                role: 'admin'
+            }
+        };
+
+        console.log('Sending response:', responseData);
+        res.json(responseData);
+
+    } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ message: 'Server error during login' });
     }
 });
@@ -49,17 +62,18 @@ router.post('/login', async (req, res) => {
 router.use(auth); // Move this AFTER the login route
 
 // Protected routes below
-router.post('/posts', auth, async (req, res) => {
+router.post('/posts', async (req, res) => {
     try {
         console.log('Received post data:', req.body); // Debug log
 
-        const { title, content, category, tags, imageUrl, author } = req.body;
+        const { title, content, category, image } = req.body;
 
         // Validate required fields
         if (!title || !content || !category) {
             return res.status(400).json({ 
-                message: 'Title, content, and category are required',
-                received: { title, content, category }
+                message: 'Missing required fields',
+                required: ['title', 'content', 'category'],
+                received: req.body
             });
         }
 
@@ -67,9 +81,8 @@ router.post('/posts', auth, async (req, res) => {
             title,
             content,
             category,
-            tags: tags || [],
-            imageUrl: imageUrl || '',
-            author: author || 'Admin'
+            image: image || '',
+            published: false
         });
 
         const savedPost = await post.save();
@@ -78,9 +91,9 @@ router.post('/posts', auth, async (req, res) => {
         res.status(201).json(savedPost);
     } catch (error) {
         console.error('Error creating post:', error);
-        res.status(400).json({ 
-            message: error.message,
-            details: error.errors // Include mongoose validation errors
+        res.status(500).json({ 
+            message: 'Error creating post',
+            error: error.message 
         });
     }
 });
@@ -88,22 +101,35 @@ router.post('/posts', auth, async (req, res) => {
 // Update post
 router.put('/posts/:id', async (req, res) => {
     try {
+        const { id } = req.params;
+        const { title, content, category, image } = req.body;
+
+        // Validate required fields
+        if (!title || !content || !category) {
+            return res.status(400).json({ 
+                message: 'Missing required fields',
+                required: ['title', 'content', 'category'],
+                received: req.body
+            });
+        }
+
         const post = await Post.findByIdAndUpdate(
-            req.params.id,
-            req.body,
+            id,
+            { title, content, category, image },
             { new: true }
         );
-        
+
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        // Emit updated post
-        req.app.get('io').emit('updatePost', post);
-        
         res.json(post);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({ 
+            message: 'Error updating post',
+            error: error.message 
+        });
     }
 });
 
@@ -117,7 +143,7 @@ router.delete('/posts/:id', async (req, res) => {
         }
 
         // Emit deleted post id
-        req.app.get('io').emit('deletePost', req.params.id);
+        io.getIO().emit('deletePost', req.params.id);
         
         res.json({ message: 'Post deleted' });
     } catch (err) {
@@ -165,22 +191,16 @@ router.get('/posts/:id', async (req, res) => {
     }
 });
 
-// Update post
-router.put('/posts/:id', async (req, res) => {
+// Toggle publish status
+router.put('/posts/:id/publish', auth, async (req, res) => {
     try {
-        const { title, content, category, tags, imageUrl, author } = req.body;
+        const { id } = req.params;
+        const { published } = req.body;
+
         const post = await Post.findByIdAndUpdate(
-            req.params.id,
-            {
-                title,
-                content,
-                category,
-                tags: tags || [],
-                imageUrl: imageUrl || '',
-                author: author || 'Admin',
-                updatedAt: Date.now()
-            },
-            { new: true, runValidators: true }
+            id,
+            { published },
+            { new: true }
         );
 
         if (!post) {
@@ -189,27 +209,19 @@ router.put('/posts/:id', async (req, res) => {
 
         res.json(post);
     } catch (error) {
-        console.error('Error updating post:', error);
-        if (error.kind === 'ObjectId') {
-            return res.status(404).json({ message: 'Invalid post ID' });
-        }
-        res.status(400).json({ message: error.message });
+        console.error('Error updating publish status:', error);
+        res.status(500).json({ message: 'Error updating publish status' });
     }
 });
 
-// Delete post
-router.delete('/posts/:id', async (req, res) => {
+// Add a public route to get published posts
+router.get('/public/posts', async (req, res) => {
     try {
-        const post = await Post.findByIdAndDelete(req.params.id);
-        if (!post) {
-            return res.status(404).json({ message: 'Post not found' });
-        }
-        res.json({ message: 'Post deleted successfully' });
+        const posts = await Post.find({ isPublished: true })
+            .sort({ publishedAt: -1 });
+        res.json(posts);
     } catch (error) {
-        console.error('Error deleting post:', error);
-        if (error.kind === 'ObjectId') {
-            return res.status(404).json({ message: 'Invalid post ID' });
-        }
+        console.error('Error fetching published posts:', error);
         res.status(500).json({ message: error.message });
     }
 });

@@ -21,11 +21,15 @@ const postSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        enum: ['Technology', 'Programming', 'Design', 'Career', 'Other']
+        enum: ['Technology', 'Lifestyle', 'Travel']
     },
-    imageUrl: {
+    image: {
         type: String,
-        default: ''
+        required: false
+    },
+    published: {
+        type: Boolean,
+        default: false
     },
     searchKeywords: [String], // For better search functionality
     commentCount: {
