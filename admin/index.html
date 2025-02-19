@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="origin">
+    <title>Blog Admin Panel</title>
+    <link rel="stylesheet" href="./admin.css">
+    <!-- Development version (no API key required) -->
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="./admin.js" type="module"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1>Blog Admin Panel</h1>
+            <div class="admin-actions">
+                <button id="newPostBtn" class="btn-primary">New Post</button>
+                <button id="logoutBtn" class="btn-secondary">Logout</button>
+            </div>
+        </header>
+
+        <div class="posts-list">
+            <!-- Posts will be listed here -->
+        </div>
+
+        <div id="postModal" class="modal">
+            <div class="modal-content">
+                <h2>Create New Post</h2>
+                <form id="postForm">
+                    <div class="form-group">
+                        <label for="title">Title</label>
+                        <input type="text" id="title" name="title" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="content">Content</label>
+                        <textarea id="content" name="content" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="featuredImage">Featured Image</label>
+                        <div class="image-upload-container">
+                            <input type="file" id="featuredImage" accept="image/*">
+                            <div id="imagePreview"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tags">Tags</label>
+                        <div class="tags-input-container">
+                            <input type="text" id="tagInput" placeholder="Add a tag">
+                            <div id="tagsList" class="tags-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Save</button>
+                        <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
