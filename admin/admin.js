@@ -5,6 +5,7 @@ class AdminPanel {
         this.showModal = this.showModal.bind(this);
         this.hideModal = this.hideModal.bind(this);
         this.addPostToList = this.addPostToList.bind(this);
+        this.removePostFromList = this.removePostFromList.bind(this);
         this.editPost = this.editPost.bind(this);
         this.deletePost = this.deletePost.bind(this);
 
@@ -102,16 +103,34 @@ class AdminPanel {
     }
 
     setupSocketListeners() {
-        this.socket.on('newPost', (post) => {
+        if (!this.socket) return;
+
+        this.socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket server');
+        });
+
+        this.socket.on('postCreated', (post) => {
+            console.log('New post created:', post);
             this.addPostToList(post);
         });
 
-        this.socket.on('updatePost', (post) => {
+        this.socket.on('postUpdated', (post) => {
+            console.log('Post updated:', post);
             this.updatePostInList(post);
         });
 
-        this.socket.on('deletePost', (postId) => {
+        this.socket.on('postDeleted', (postId) => {
+            console.log('Post deleted:', postId);
             this.removePostFromList(postId);
+        });
+
+        this.socket.on('error', (error) => {
+            console.error('Socket error:', error);
+            this.showNotification('Connection error', 'error');
         });
     }
 
@@ -184,10 +203,17 @@ class AdminPanel {
                 </div>
             </div>
             <div class="post-actions">
-                <button class="btn-edit" onclick="window.adminPanel.editPost('${post._id}')">Edit</button>
-                <button class="btn-delete" onclick="window.adminPanel.deletePost('${post._id}')">Delete</button>
+                <button class="btn-edit">Edit</button>
+                <button class="btn-delete">Delete</button>
             </div>
         `;
+
+        // Add event listeners after creating the element
+        const editBtn = postElement.querySelector('.btn-edit');
+        const deleteBtn = postElement.querySelector('.btn-delete');
+
+        editBtn.addEventListener('click', () => this.editPost(post._id));
+        deleteBtn.addEventListener('click', () => this.deletePost(post._id));
 
         postsList.insertBefore(postElement, postsList.firstChild);
     }
@@ -205,12 +231,13 @@ class AdminPanel {
         e.preventDefault();
         const form = e.target;
         const formData = new FormData(form);
+        const isEditing = form.dataset.isEditing === 'true';
+        const postId = form.dataset.postId;
         
         try {
             const tagsInput = formData.get('tags');
             const tags = tagsInput ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
 
-            // Get content from TinyMCE safely
             let content = '';
             if (this.editor && this.editor.getContent) {
                 content = this.editor.getContent();
@@ -218,37 +245,55 @@ class AdminPanel {
                 content = formData.get('content') || '';
             }
 
-            const response = await this.fetchWithAuth('http://localhost:5000/api/admin/posts', {
-                method: 'POST',
-                body: JSON.stringify({
-                    title: formData.get('title'),
-                    content: content,
-                    category: formData.get('category'),
-                    tags: tags,
-                    imageUrl: formData.get('imageUrl') || '',
-                    author: 'Admin'
-                })
+            const postData = {
+                title: formData.get('title'),
+                content: content,
+                category: formData.get('category'),
+                tags: tags,
+                imageUrl: formData.get('imageUrl') || '',
+                author: 'Admin'
+            };
+
+            const url = isEditing 
+                ? `http://localhost:5000/api/admin/posts/${postId}`
+                : 'http://localhost:5000/api/admin/posts';
+
+            const method = isEditing ? 'PUT' : 'POST';
+
+            const response = await this.fetchWithAuth(url, {
+                method: method,
+                body: JSON.stringify(postData)
             });
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.message || 'Failed to create post');
+                throw new Error(error.message || `Failed to ${isEditing ? 'update' : 'create'} post`);
             }
 
             const post = await response.json();
             this.hideModal();
+            
+            if (isEditing) {
+                // Update existing post in the list
+                const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+                if (postElement) {
+                    postElement.remove();
+                }
+            }
+            
             this.addPostToList(post);
             form.reset();
+            form.dataset.isEditing = 'false';
+            form.dataset.postId = '';
             
-            // Reset TinyMCE content safely
             if (this.editor && this.editor.setContent) {
                 this.editor.setContent('');
             }
             
-            this.showNotification('Post created successfully!', 'success');
+            this.showNotification(`Post ${isEditing ? 'updated' : 'created'} successfully!`, 'success');
         } catch (error) {
-            console.error('Error creating post:', error);
-            this.showNotification(error.message || 'Failed to create post', 'error');
+            console.error(`Error ${isEditing ? 'updating' : 'creating'} post:`, error);
+            this.showNotification(error.message || `Failed to ${isEditing ? 'update' : 'create'} post`, 'error');
         }
     }
 
@@ -327,22 +372,19 @@ class AdminPanel {
     }
 
     showNotification(message, type = 'info') {
-        // Add notification element if it doesn't exist
-        let notification = document.getElementById('notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'notification';
-            document.body.appendChild(notification);
-        }
-
-        // Set notification content and style
-        notification.textContent = message;
+        const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.style.display = 'block';
+        notification.textContent = message;
 
-        // Hide notification after 3 seconds
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
+        // Add new notification
+        document.body.appendChild(notification);
+
+        // Remove after 3 seconds
         setTimeout(() => {
-            notification.style.display = 'none';
+            notification.remove();
         }, 3000);
     }
 
@@ -408,9 +450,10 @@ class AdminPanel {
 
             // Remove post from DOM
             const postElement = document.querySelector(`[data-post-id="${postId}"]`);
-            if (postElement) postElement.remove();
-
-            this.showNotification('Post deleted successfully', 'success');
+            if (postElement) {
+                postElement.remove();
+                this.showNotification('Post deleted successfully', 'success');
+            }
         } catch (error) {
             console.error('Error deleting post:', error);
             this.showNotification('Failed to delete post', 'error');
@@ -421,17 +464,24 @@ class AdminPanel {
         try {
             const response = await this.fetchWithAuth(`http://localhost:5000/api/admin/posts/${postId}`);
             if (!response.ok) throw new Error('Failed to fetch post');
+            
             const post = await response.json();
             
             // Fill the form with post data
             document.getElementById('title').value = post.title;
             document.getElementById('category').value = post.category;
-            tinymce.get('content').setContent(post.content);
+            if (this.editor && this.editor.setContent) {
+                this.editor.setContent(post.content);
+            }
             document.getElementById('tags').value = post.tags.join(', ');
             document.getElementById('imageUrl').value = post.imageUrl || '';
 
             // Store the post ID for updating
-            document.getElementById('postForm').dataset.postId = postId;
+            const form = document.getElementById('postForm');
+            if (form) {
+                form.dataset.postId = postId;
+                form.dataset.isEditing = 'true';
+            }
             
             this.showModal();
         } catch (error) {
@@ -439,9 +489,63 @@ class AdminPanel {
             this.showNotification('Failed to load post for editing', 'error');
         }
     }
+
+    removePostFromList(postId) {
+        const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+        if (postElement) {
+            postElement.remove();
+        }
+    }
+
+    updatePostInList(post) {
+        // Remove old version if it exists
+        this.removePostFromList(post._id);
+        // Add updated version
+        this.addPostToList(post);
+    }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.adminPanel = new AdminPanel();
-}); 
+});
+
+// Add notification styles to your CSS
+const style = document.createElement('style');
+style.textContent = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .notification.success {
+        background-color: #10B981;
+    }
+
+    .notification.error {
+        background-color: #EF4444;
+    }
+
+    .notification.info {
+        background-color: #3B82F6;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(style); 

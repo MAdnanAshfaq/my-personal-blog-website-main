@@ -39,14 +39,10 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    console.log('Client connected');
 
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log('Client disconnected:', socket.id, 'Reason:', reason);
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
     });
 });
 

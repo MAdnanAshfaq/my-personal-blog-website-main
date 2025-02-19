@@ -137,4 +137,81 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     }
 });
 
+// Get all posts
+router.get('/posts', async (req, res) => {
+    try {
+        const posts = await Post.find().sort({ createdAt: -1 });
+        res.json(posts);
+    } catch (error) {
+        console.error('Error fetching posts:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get single post
+router.get('/posts/:id', async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+        res.json(post);
+    } catch (error) {
+        console.error('Error fetching post:', error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ message: 'Invalid post ID' });
+        }
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Update post
+router.put('/posts/:id', async (req, res) => {
+    try {
+        const { title, content, category, tags, imageUrl, author } = req.body;
+        const post = await Post.findByIdAndUpdate(
+            req.params.id,
+            {
+                title,
+                content,
+                category,
+                tags: tags || [],
+                imageUrl: imageUrl || '',
+                author: author || 'Admin',
+                updatedAt: Date.now()
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        res.json(post);
+    } catch (error) {
+        console.error('Error updating post:', error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ message: 'Invalid post ID' });
+        }
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Delete post
+router.delete('/posts/:id', async (req, res) => {
+    try {
+        const post = await Post.findByIdAndDelete(req.params.id);
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+        res.json({ message: 'Post deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({ message: 'Invalid post ID' });
+        }
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router; 
