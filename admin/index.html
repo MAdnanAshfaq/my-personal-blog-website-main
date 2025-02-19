@@ -6,8 +6,8 @@
     <meta name="referrer" content="origin">
     <title>Blog Admin Panel</title>
     <link rel="stylesheet" href="./admin.css">
-    <!-- Development version (no API key required) -->
-    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <!-- Replace TinyMCE CDN with self-hosted version -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" integrity="sha512-6JR4bbn8rCKvrkdoTJd/VFyXAN4CE9XMtgykPWgKiHjou56YDJxWsi90hAeMTYxNwUnKSQu9JPc3SQUg+aGCHw==" crossorigin="anonymous" referrerpolicy="origin"></script>
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
     <script src="./admin.js" type="module"></script>
 </head>
@@ -36,23 +36,17 @@
 
                     <div class="form-group">
                         <label for="content">Content</label>
-                        <textarea id="content" name="content" required></textarea>
+                        <textarea id="content" name="content"></textarea>
                     </div>
 
                     <div class="form-group">
-                        <label for="featuredImage">Featured Image</label>
-                        <div class="image-upload-container">
-                            <input type="file" id="featuredImage" accept="image/*">
-                            <div id="imagePreview"></div>
-                        </div>
+                        <label for="tags">Tags (comma-separated)</label>
+                        <input type="text" id="tags" name="tags">
                     </div>
 
                     <div class="form-group">
-                        <label for="tags">Tags</label>
-                        <div class="tags-input-container">
-                            <input type="text" id="tagInput" placeholder="Add a tag">
-                            <div id="tagsList" class="tags-list"></div>
-                        </div>
+                        <label for="imageUrl">Image URL</label>
+                        <input type="url" id="imageUrl" name="imageUrl">
                     </div>
 
                     <div class="form-actions">

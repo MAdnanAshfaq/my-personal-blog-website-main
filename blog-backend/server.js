@@ -10,9 +10,9 @@ const server = http.createServer(app);
 
 // Configure CORS
 const corsOptions = {
-    origin: true, // Allow all origins for development
+    origin: ['http://localhost:3000'], // Add admin panel URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Referrer-Policy'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 };
 
