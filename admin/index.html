@@ -6,10 +6,11 @@
     <meta name="referrer" content="origin">
     <title>Blog Admin Panel</title>
     <link rel="stylesheet" href="./admin.css">
-    <!-- Replace TinyMCE CDN with self-hosted version -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" integrity="sha512-6JR4bbn8rCKvrkdoTJd/VFyXAN4CE9XMtgykPWgKiHjou56YDJxWsi90hAeMTYxNwUnKSQu9JPc3SQUg+aGCHw==" crossorigin="anonymous" referrerpolicy="origin"></script>
+    <!-- Load TinyMCE first -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    <script src="./admin.js" type="module"></script>
+    <!-- Load admin.js after TinyMCE -->
+    <script src="./admin.js" defer></script>
 </head>
 <body>
     <div class="admin-container">
@@ -32,6 +33,18 @@
                     <div class="form-group">
                         <label for="title">Title</label>
                         <input type="text" id="title" name="title" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">Category</label>
+                        <select id="category" name="category" required>
+                            <option value="">Select a category</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Programming">Programming</option>
+                            <option value="Design">Design</option>
+                            <option value="Career">Career</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
 
                     <div class="form-group">

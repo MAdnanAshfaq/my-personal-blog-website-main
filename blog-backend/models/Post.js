@@ -21,15 +21,24 @@ const postSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        trim: true
+        enum: ['Technology', 'Programming', 'Design', 'Career', 'Other']
     },
     imageUrl: {
-        type: String
+        type: String,
+        default: ''
     },
     searchKeywords: [String], // For better search functionality
     commentCount: {
         type: Number,
         default: 0
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true
@@ -41,6 +50,12 @@ postSchema.index({
     content: 'text',
     tags: 'text',
     category: 'text'
+});
+
+// Update timestamps on save
+postSchema.pre('save', function(next) {
+    this.updatedAt = Date.now();
+    next();
 });
 
 module.exports = mongoose.model('Post', postSchema); 

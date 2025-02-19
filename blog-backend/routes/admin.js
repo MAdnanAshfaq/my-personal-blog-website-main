@@ -49,24 +49,39 @@ router.post('/login', async (req, res) => {
 router.use(auth); // Move this AFTER the login route
 
 // Protected routes below
-router.post('/posts', async (req, res) => {
+router.post('/posts', auth, async (req, res) => {
     try {
+        console.log('Received post data:', req.body); // Debug log
+
+        const { title, content, category, tags, imageUrl, author } = req.body;
+
+        // Validate required fields
+        if (!title || !content || !category) {
+            return res.status(400).json({ 
+                message: 'Title, content, and category are required',
+                received: { title, content, category }
+            });
+        }
+
         const post = new Post({
-            title: req.body.title,
-            content: req.body.content,
-            author: req.body.author,
-            tags: req.body.tags,
-            imageUrl: req.body.imageUrl
+            title,
+            content,
+            category,
+            tags: tags || [],
+            imageUrl: imageUrl || '',
+            author: author || 'Admin'
         });
 
-        const newPost = await post.save();
-        
-        // Emit new post to all connected clients
-        req.app.get('io').emit('newPost', newPost);
-        
-        res.status(201).json(newPost);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+        const savedPost = await post.save();
+        console.log('Saved post:', savedPost); // Debug log
+
+        res.status(201).json(savedPost);
+    } catch (error) {
+        console.error('Error creating post:', error);
+        res.status(400).json({ 
+            message: error.message,
+            details: error.errors // Include mongoose validation errors
+        });
     }
 });
 

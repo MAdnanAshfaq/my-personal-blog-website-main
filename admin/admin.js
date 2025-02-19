@@ -1,11 +1,27 @@
 class AdminPanel {
     constructor() {
-        // Check authentication first
+        // Bind methods to preserve 'this' context
+        this.handlePostSubmit = this.handlePostSubmit.bind(this);
+        this.showModal = this.showModal.bind(this);
+        this.hideModal = this.hideModal.bind(this);
+        this.addPostToList = this.addPostToList.bind(this);
+        this.editPost = this.editPost.bind(this);
+        this.deletePost = this.deletePost.bind(this);
+
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initialize());
+        } else {
+            this.initialize();
+        }
+    }
+
+    initialize() {
         if (!this.checkAuth()) {
             window.location.href = './login.html';
             return;
         }
-        
+
         this.socket = io('http://localhost:5000', {
             withCredentials: true,
             transports: ['websocket'],
@@ -28,8 +44,8 @@ class AdminPanel {
         this.tags = new Set();
         this.setupSocketListeners();
         this.setupEventListeners();
-        this.initializeTinyMCE();
         this.loadPosts();
+        this.initializeTinyMCE();
     }
 
     checkAuth() {
@@ -58,49 +74,31 @@ class AdminPanel {
     }
 
     initializeTinyMCE() {
-        tinymce.init({
-            selector: '#content',
-            plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
-            toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image media table | align lineheight | numlist bullist indent outdent | emoticons charmap | removeformat',
-            height: 500,
-            referrerPolicy: "origin",
-            relative_urls: false,
-            remove_script_host: false,
-            convert_urls: true,
-            image_uploadtab: true,
-            automatic_uploads: true,
-            hidden_input: false,
-            images_upload_handler: async (blobInfo, progress) => {
-                try {
-                    const formData = new FormData();
-                    formData.append('image', blobInfo.blob());
+        try {
+            tinymce.init({
+                selector: '#content',
+                plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
+                toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | link image media table | align lineheight | numlist bullist indent outdent | emoticons charmap | removeformat',
+                height: 500,
+                setup: (editor) => {
+                    // Store editor instance
+                    this.editor = editor;
                     
-                    const response = await fetch('http://localhost:5000/api/admin/upload', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${this.getToken()}`
-                        },
-                        body: formData
+                    editor.on('init', () => {
+                        console.log('TinyMCE initialized');
                     });
-
-                    if (!response.ok) throw new Error('Upload failed');
-                    
-                    const data = await response.json();
-                    return data.url;
-                } catch (error) {
-                    console.error('Image upload failed:', error);
-                    throw error;
+                },
+                init_instance_callback: (editor) => {
+                    console.log('Editor instance ready');
                 }
-            },
-            setup: (editor) => {
-                editor.on('init', () => {
-                    console.log('TinyMCE initialized successfully');
-                });
-                editor.on('change', () => {
-                    editor.save();
-                });
-            }
-        });
+            }).then(() => {
+                console.log('TinyMCE loaded successfully');
+            }).catch(err => {
+                console.error('TinyMCE initialization error:', err);
+            });
+        } catch (error) {
+            console.error('Error initializing TinyMCE:', error);
+        }
     }
 
     setupSocketListeners() {
@@ -118,24 +116,20 @@ class AdminPanel {
     }
 
     setupEventListeners() {
-        document.getElementById('newPostBtn')?.addEventListener('click', () => {
-            this.showModal();
-        });
+        const newPostBtn = document.getElementById('newPostBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const postForm = document.getElementById('postForm');
+        const cancelBtn = document.getElementById('cancelBtn');
 
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            this.logout();
-        });
+        if (!newPostBtn || !logoutBtn || !postForm || !cancelBtn) {
+            console.error('Required DOM elements not found');
+            return;
+        }
 
-        document.getElementById('postForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const content = tinymce.get('content').getContent();
-            document.getElementById('content').value = content;
-            this.handlePostSubmit(e);
-        });
-
-        document.getElementById('cancelBtn')?.addEventListener('click', () => {
-            this.hideModal();
-        });
+        newPostBtn.addEventListener('click', this.showModal);
+        logoutBtn.addEventListener('click', () => this.logout());
+        postForm.addEventListener('submit', this.handlePostSubmit);
+        cancelBtn.addEventListener('click', this.hideModal);
 
         document.getElementById('tagInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -158,26 +152,53 @@ class AdminPanel {
             this.renderPosts(posts);
         } catch (error) {
             console.error('Error loading posts:', error);
-            this.showNotification(error.message, 'error');
+            this.showNotification('Failed to load posts', 'error');
         }
     }
 
     renderPosts(posts) {
         const postsList = document.querySelector('.posts-list');
-        postsList.innerHTML = posts.map(post => this.createPostCard(post)).join('');
+        if (!postsList) return;
+
+        postsList.innerHTML = '';
+        posts.forEach(post => this.addPostToList(post));
     }
 
-    createPostCard(post) {
-        return `
-            <div class="post-card" data-id="${post._id}">
-                <h3>${post.title}</h3>
-                <p>${post.content.substring(0, 150)}...</p>
-                <div class="post-actions">
-                    <button onclick="adminPanel.editPost('${post._id}')">Edit</button>
-                    <button onclick="adminPanel.deletePost('${post._id}')">Delete</button>
+    addPostToList(post) {
+        const postsList = document.querySelector('.posts-list');
+        if (!postsList) {
+            console.error('Posts list container not found');
+            return;
+        }
+
+        const postElement = document.createElement('div');
+        postElement.className = 'post-item';
+        postElement.dataset.postId = post._id;
+
+        postElement.innerHTML = `
+            <div class="post-header">
+                <h3>${this.escapeHtml(post.title)}</h3>
+                <div class="post-meta">
+                    <span class="category">${this.escapeHtml(post.category)}</span>
+                    <span class="date">${new Date(post.createdAt).toLocaleDateString()}</span>
                 </div>
             </div>
+            <div class="post-actions">
+                <button class="btn-edit" onclick="window.adminPanel.editPost('${post._id}')">Edit</button>
+                <button class="btn-delete" onclick="window.adminPanel.deletePost('${post._id}')">Delete</button>
+            </div>
         `;
+
+        postsList.insertBefore(postElement, postsList.firstChild);
+    }
+
+    escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     async handlePostSubmit(e) {
@@ -189,11 +210,20 @@ class AdminPanel {
             const tagsInput = formData.get('tags');
             const tags = tagsInput ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
 
+            // Get content from TinyMCE safely
+            let content = '';
+            if (this.editor && this.editor.getContent) {
+                content = this.editor.getContent();
+            } else {
+                content = formData.get('content') || '';
+            }
+
             const response = await this.fetchWithAuth('http://localhost:5000/api/admin/posts', {
                 method: 'POST',
                 body: JSON.stringify({
                     title: formData.get('title'),
-                    content: formData.get('content'),
+                    content: content,
+                    category: formData.get('category'),
                     tags: tags,
                     imageUrl: formData.get('imageUrl') || '',
                     author: 'Admin'
@@ -209,7 +239,12 @@ class AdminPanel {
             this.hideModal();
             this.addPostToList(post);
             form.reset();
-            tinymce.get('content').setContent('');
+            
+            // Reset TinyMCE content safely
+            if (this.editor && this.editor.setContent) {
+                this.editor.setContent('');
+            }
+            
             this.showNotification('Post created successfully!', 'success');
         } catch (error) {
             console.error('Error creating post:', error);
@@ -254,18 +289,28 @@ class AdminPanel {
 
     // Helper methods
     showModal() {
-        document.getElementById('postModal').style.display = 'block';
-        document.getElementById('postForm').reset();
-        if (tinymce.get('content')) {
-            tinymce.get('content').setContent('');
+        const modal = document.getElementById('postModal');
+        if (modal) {
+            modal.style.display = 'block';
+            // Reset form and editor
+            const form = document.getElementById('postForm');
+            if (form) form.reset();
+            if (this.editor && this.editor.setContent) {
+                this.editor.setContent('');
+            }
         }
     }
 
     hideModal() {
-        document.getElementById('postModal').style.display = 'none';
-        document.getElementById('postForm').reset();
-        if (tinymce.get('content')) {
-            tinymce.get('content').setContent('');
+        const modal = document.getElementById('postModal');
+        if (modal) {
+            modal.style.display = 'none';
+            // Reset form and editor
+            const form = document.getElementById('postForm');
+            if (form) form.reset();
+            if (this.editor && this.editor.setContent) {
+                this.editor.setContent('');
+            }
         }
     }
 
@@ -352,19 +397,46 @@ class AdminPanel {
 
     // Update deletePost method if you have one
     async deletePost(postId) {
+        if (!confirm('Are you sure you want to delete this post?')) return;
+
         try {
             const response = await this.fetchWithAuth(`http://localhost:5000/api/admin/posts/${postId}`, {
                 method: 'DELETE'
             });
 
             if (!response.ok) throw new Error('Failed to delete post');
-            
+
             // Remove post from DOM
-            document.querySelector(`[data-post-id="${postId}"]`)?.remove();
+            const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+            if (postElement) postElement.remove();
+
             this.showNotification('Post deleted successfully', 'success');
         } catch (error) {
             console.error('Error deleting post:', error);
-            this.showNotification(error.message, 'error');
+            this.showNotification('Failed to delete post', 'error');
+        }
+    }
+
+    async editPost(postId) {
+        try {
+            const response = await this.fetchWithAuth(`http://localhost:5000/api/admin/posts/${postId}`);
+            if (!response.ok) throw new Error('Failed to fetch post');
+            const post = await response.json();
+            
+            // Fill the form with post data
+            document.getElementById('title').value = post.title;
+            document.getElementById('category').value = post.category;
+            tinymce.get('content').setContent(post.content);
+            document.getElementById('tags').value = post.tags.join(', ');
+            document.getElementById('imageUrl').value = post.imageUrl || '';
+
+            // Store the post ID for updating
+            document.getElementById('postForm').dataset.postId = postId;
+            
+            this.showModal();
+        } catch (error) {
+            console.error('Error editing post:', error);
+            this.showNotification('Failed to load post for editing', 'error');
         }
     }
 }
