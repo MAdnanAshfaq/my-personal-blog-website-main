@@ -69,97 +69,93 @@ document.addEventListener('DOMContentLoaded', function() {
 document.body.style.transition = 'background-color 0.3s ease, color 0.3s ease';
 
 // Add search functionality
-class BlogSearch {
-  constructor() {
-    this.searchInput = document.getElementById('searchInput');
-    this.searchResults = document.getElementById('searchResults');
-    this.blogPosts = this.getAllBlogPosts();
-    this.setupEventListeners();
-  }
+document.addEventListener('DOMContentLoaded', () => {
+    // First, verify we can find our elements
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
 
-  getAllBlogPosts() {
-    const posts = [];
-    document.querySelectorAll('.blog-card').forEach(card => {
-      posts.push({
-        title: card.querySelector('.h3').textContent.trim(),
-        content: card.querySelector('.blog-text').textContent.trim(),
-        topic: card.querySelector('.blog-topic').textContent.trim(),
-        element: card
-      });
-    });
-    return posts;
-  }
-
-  setupEventListeners() {
-    let debounceTimeout;
-    
-    this.searchInput.addEventListener('input', () => {
-      clearTimeout(debounceTimeout);
-      debounceTimeout = setTimeout(() => this.handleSearch(), 300);
-    });
-
-    // Close search results when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!this.searchResults.contains(e.target) && 
-          !this.searchInput.contains(e.target)) {
-        this.searchResults.hidden = true;
-      }
-    });
-  }
-
-  handleSearch() {
-    const searchTerm = this.searchInput.value.toLowerCase().trim();
-    
-    if (searchTerm === '') {
-      this.searchResults.hidden = true;
-      return;
-    }
-
-    const results = this.blogPosts.filter(post => 
-      post.title.toLowerCase().includes(searchTerm) ||
-      post.content.toLowerCase().includes(searchTerm) ||
-      post.topic.toLowerCase().includes(searchTerm)
-    );
-
-    this.displayResults(results);
-  }
-
-  displayResults(results) {
-    this.searchResults.innerHTML = '';
-    
-    if (results.length === 0) {
-      this.searchResults.innerHTML = `
-        <div class="no-results">
-          No results found
-        </div>
-      `;
-    } else {
-      results.forEach(post => {
-        const resultItem = document.createElement('div');
-        resultItem.className = 'search-result-item';
-        resultItem.innerHTML = `
-          <h4>${post.title}</h4>
-          <p>${post.content.substring(0, 100)}...</p>
-        `;
-        
-        resultItem.addEventListener('click', () => {
-          post.element.scrollIntoView({ behavior: 'smooth' });
-          post.element.style.animation = 'highlight 2s';
-          this.searchResults.hidden = true;
-          this.searchInput.value = '';
+    if (!searchInput || !searchResults) {
+        console.error('Search elements not found:', {
+            searchInput: !!searchInput,
+            searchResults: !!searchResults
         });
-        
-        this.searchResults.appendChild(resultItem);
-      });
+        return;
     }
-    
-    this.searchResults.hidden = false;
-  }
 
-  updateSearchIndex() {
-    this.blogPosts = this.getAllBlogPosts();
-  }
-}
+    // Sample blog posts for testing
+    const blogPosts = [
+        {
+            title: "Getting Started with Web Development",
+            content: "Learn the basics of HTML, CSS, and JavaScript...",
+            url: "/blog/getting-started"
+        },
+        {
+            title: "CSS Tips and Tricks",
+            content: "Discover advanced CSS techniques...",
+            url: "/blog/css-tips"
+        },
+        {
+            title: "JavaScript Fundamentals",
+            content: "Master the basics of JavaScript...",
+            url: "/blog/js-fundamentals"
+        }
+    ];
+
+    // Simple search function
+    function handleSearch() {
+        const query = searchInput.value.toLowerCase().trim();
+        console.log('Searching for:', query); // Debug log
+
+        // Clear results if search is empty
+        if (query === '') {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        // Filter posts
+        const results = blogPosts.filter(post => 
+            post.title.toLowerCase().includes(query) ||
+            post.content.toLowerCase().includes(query)
+        );
+
+        // Display results
+        if (results.length > 0) {
+            searchResults.innerHTML = results.map(post => `
+                <div class="search-result-item">
+                    <h4>${post.title}</h4>
+                    <p>${post.content}</p>
+                </div>
+            `).join('');
+            searchResults.style.display = 'block';
+        } else {
+            searchResults.innerHTML = `
+                <div class="no-results">
+                    No matching articles found
+                </div>
+            `;
+            searchResults.style.display = 'block';
+        }
+    }
+
+    // Add event listeners
+    searchInput.addEventListener('input', handleSearch);
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Show results on focus if input has value
+    searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim()) {
+            handleSearch();
+        }
+    });
+
+    console.log('Search functionality initialized'); // Debug log
+});
 
 // Add Infinite Scroll functionality
 class InfiniteScroll {
@@ -406,26 +402,60 @@ document.querySelectorAll('.btn').forEach(button => {
 
 // Theme toggling functionality
 class ThemeManager {
-  constructor() {
-    this.body = document.body;
-    this.themeBtn = document.querySelector('.theme-btn');
-    
-    // Load saved theme
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      this.body.classList.add('dark-mode');
+    constructor() {
+        this.themeBtn = document.querySelector('.theme-btn');
+        
+        // Check system preference
+        this.systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Check saved preference
+        this.savedTheme = localStorage.getItem('theme');
+        
+        // Initialize theme
+        this.initializeTheme();
+        
+        // Add event listeners
+        this.themeBtn.addEventListener('click', () => this.toggleTheme());
+        
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!this.savedTheme) {
+                this.systemPrefersDark = e.matches;
+                this.applyTheme();
+            }
+        });
     }
-    
-    // Add click handler
-    this.themeBtn.addEventListener('click', () => this.toggleTheme());
-  }
 
-  toggleTheme() {
-    this.body.classList.toggle('dark-mode');
-    const isDark = this.body.classList.contains('dark-mode');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  }
+    initializeTheme() {
+        if (this.savedTheme) {
+            document.documentElement.classList.add(`${this.savedTheme}-mode`);
+        } else {
+            this.applyTheme();
+        }
+    }
+
+    applyTheme() {
+        if (this.systemPrefersDark) {
+            document.documentElement.classList.remove('light-mode');
+            document.documentElement.classList.add('dark-mode');
+        } else {
+            document.documentElement.classList.remove('dark-mode');
+            document.documentElement.classList.add('light-mode');
+        }
+    }
+
+    toggleTheme() {
+        const isDark = document.documentElement.classList.contains('dark-mode');
+        document.documentElement.classList.remove(isDark ? 'dark-mode' : 'light-mode');
+        document.documentElement.classList.add(isDark ? 'light-mode' : 'dark-mode');
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    }
 }
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new ThemeManager();
+});
 
 // Hero and Navbar scroll animation
 class ScrollManager {
@@ -506,18 +536,91 @@ class NavbarManager {
 class SearchManager {
   constructor() {
     this.searchInput = document.getElementById('searchInput');
-    this.searchResults = [];
+    this.searchBtn = document.querySelector('.search-btn');
+    this.suggestionsContainer = document.createElement('div');
+    this.suggestionsContainer.className = 'search-suggestions';
     
-    this.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+    // Add suggestions container
+    this.searchInput.parentNode.appendChild(this.suggestionsContainer);
+    
+    // Sample blog data (replace with your actual data)
+    this.blogs = [
+      {
+        title: "Getting Started with Web Development",
+        preview: "Learn the basics of HTML, CSS, and JavaScript...",
+        url: "/blog/web-dev-basics"
+      },
+      {
+        title: "Advanced JavaScript Concepts",
+        preview: "Deep dive into closures, promises, and async/await...",
+        url: "/blog/advanced-js"
+      },
+      {
+        title: "CSS Grid Layout Guide",
+        preview: "Master modern CSS layouts with Grid...",
+        url: "/blog/css-grid"
+      }
+    ];
+
+    // Event listeners
+    this.searchInput.addEventListener('input', () => this.handleSearch());
+    this.searchInput.addEventListener('focus', () => this.handleSearch());
+    
+    // Close suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!this.searchInput.contains(e.target) && !this.suggestionsContainer.contains(e.target)) {
+        this.hideSuggestions();
+      }
+    });
   }
 
-  handleSearch(query) {
-    // Add your search logic here
-    console.log('Searching for:', query);
+  handleSearch() {
+    const query = this.searchInput.value.trim().toLowerCase();
+    
+    if (query.length < 2) {
+      this.hideSuggestions();
+      return;
+    }
+
+    const matches = this.blogs.filter(blog => 
+      blog.title.toLowerCase().includes(query) ||
+      blog.preview.toLowerCase().includes(query)
+    );
+
+    this.displaySuggestions(matches);
+  }
+
+  displaySuggestions(matches) {
+    if (!matches.length) {
+      this.suggestionsContainer.innerHTML = `
+        <div class="suggestion-item">
+          <div class="suggestion-title">No results found</div>
+        </div>`;
+    } else {
+      this.suggestionsContainer.innerHTML = matches
+        .map(blog => `
+          <a href="${blog.url}" class="suggestion-item">
+            <div>
+              <div class="suggestion-title">${blog.title}</div>
+              <div class="suggestion-preview">${blog.preview}</div>
+            </div>
+          </a>
+        `).join('');
+    }
+    
+    this.showSuggestions();
+  }
+
+  showSuggestions() {
+    this.suggestionsContainer.style.display = 'block';
+  }
+
+  hideSuggestions() {
+    this.suggestionsContainer.style.display = 'none';
   }
 }
 
-// Initialize everything when DOM is loaded
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   new NavbarManager();
   new ThemeManager();
