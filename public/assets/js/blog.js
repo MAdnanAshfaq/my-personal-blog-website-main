@@ -287,7 +287,11 @@ class BlogManager {
     }
 
     escapeHtml(unsafe) {
-        return unsafe
+        if (!unsafe) return '';
+        
+        const str = String(unsafe);
+        
+        return str
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
