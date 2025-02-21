@@ -213,7 +213,10 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 // Get all posts
 router.get('/posts', async (req, res) => {
     try {
-        const posts = await Post.find().sort({ createdAt: -1 });
+        const query = req.query.published ? { published: true } : {};
+        const posts = await Post.find(query)
+            .sort({ createdAt: -1 }) // Sort by newest first
+            .exec();
         res.json(posts);
     } catch (error) {
         console.error('Error fetching posts:', error);

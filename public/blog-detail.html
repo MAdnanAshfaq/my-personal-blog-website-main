@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Detail</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .blog-detail-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .blog-hero {
+            position: relative;
+            height: 500px;
+            margin: -2rem -2rem 2rem;
+        }
+
+        .blog-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .blog-hero-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 4rem 2rem 2rem;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            color: white;
+        }
+
+        .blog-hero-overlay h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .blog-meta {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .blog-content {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: var(--foreground-primary);
+        }
+
+        .blog-content p {
+            margin-bottom: 2rem;
+        }
+
+        .blog-content img {
+            max-width: 100%;
+            border-radius: 12px;
+            margin: 2rem 0;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 2rem;
+            left: 2rem;
+            background: var(--accent);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .back-button:hover {
+            transform: translateX(-5px);
+        }
+
+        @media (max-width: 768px) {
+            .blog-hero {
+                height: 300px;
+            }
+
+            .blog-hero-overlay h1 {
+                font-size: 2rem;
+            }
+
+            .blog-content {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="back-btn">← Back to Blog</a>
+    </nav>
+
+    <main class="blog-detail-container">
+        <article class="blog-detail">
+            <div class="blog-detail-header">
+                <img id="blogImage" class="blog-detail-image" src="" alt="">
+                <h1 id="blogTitle" class="blog-detail-title"></h1>
+                <div class="blog-detail-meta">
+                    <span id="blogCategory" class="blog-category"></span>
+                    <span id="blogDate" class="blog-date"></span>
+                </div>
+            </div>
+            <div id="blogContent" class="blog-detail-content"></div>
+        </article>
+    </main>
+
+    <script>
+        class BlogDetailManager {
+            constructor() {
+                this.apiBaseUrl = 'http://localhost:5000/api';
+                this.loadBlogPost();
+            }
+
+            async loadBlogPost() {
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const postId = urlParams.get('id');
+
+                    if (!postId) {
+                        throw new Error('No post ID provided');
+                    }
+
+                    // Fetch the admin-created post
+                    const response = await fetch(`${this.apiBaseUrl}/admin/posts/${postId}`);
+                    if (!response.ok) throw new Error('Failed to fetch post');
+
+                    const post = await response.json();
+                    this.renderBlogPost(post);
+                } catch (error) {
+                    console.error('Error loading blog post:', error);
+                    this.showError();
+                }
+            }
+
+            renderBlogPost(post) {
+                // Display the admin-created content
+                document.getElementById('blogImage').src = post.image;
+                document.getElementById('blogTitle').textContent = post.title;
+                document.getElementById('blogCategory').textContent = post.category;
+                document.getElementById('blogDate').textContent = this.formatDate(post.createdAt);
+                
+                // Render the content from TinyMCE editor
+                document.getElementById('blogContent').innerHTML = post.content;
+                
+                document.title = `${post.title} - Blog Detail`;
+            }
+
+            formatDate(dateString) {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
+            showError() {
+                const container = document.querySelector('.blog-detail-container');
+                container.innerHTML = `
+                    <div class="error-message">
+                        <h2>Error loading blog post</h2>
+                        <p>Please try again later or return to the home page.</p>
+                        <a href="/" class="btn">Back to Home</a>
+                    </div>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new BlogDetailManager();
+        });
+    </script>
+</body>
+</html> 

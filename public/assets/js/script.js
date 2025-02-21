@@ -714,10 +714,190 @@ document.addEventListener('DOMContentLoaded', () => {
     new App();
 });
 
-function formatDate(date) {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(date).toLocaleDateString('en-US', options);
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString();
 }
 
-// When creating new blog posts or displaying dates, use:
-const formattedDate = formatDate(yourDateVariable);
+// Blog rendering function with better UI
+function renderBlogPosts(posts) {
+    const blogContainer = document.querySelector('.blog-posts-section');
+    if (!blogContainer) return;
+
+    blogContainer.innerHTML = `
+        <div class="blog-grid">
+            ${posts.map(post => `
+                <article class="blog-card" data-post-id="${post._id}">
+                    <div class="blog-banner-box">
+                        <img src="${post.image || 'assets/images/default-blog.jpg'}" alt="${post.title}" loading="lazy">
+                    </div>
+                    <div class="blog-content">
+                        <h3 class="blog-title">${post.title}</h3>
+                        <p class="blog-text">${truncateText(post.content, 150)}</p>
+                        <div class="blog-metadata">
+                            <span class="blog-category">${post.category}</span>
+                            <div class="blog-info">
+                                <span>${formatDate(post.createdAt)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            `).join('')}
+        </div>`;
+
+    // Add click event listeners to each blog card
+    document.querySelectorAll('.blog-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            const postId = card.dataset.postId;
+            window.location.href = `blog-detail.html?id=${postId}`;
+        });
+    });
+}
+
+function renderFeaturedPost(post) {
+    return `
+        <article class="featured-blog-card" data-post-id="${post._id}">
+            <div class="featured-content">
+                <div class="featured-text">
+                    <span class="category">${post.category}</span>
+                    <h2>${post.title}</h2>
+                    <p>${truncateText(post.content, 200)}</p>
+                    <div class="post-meta">
+                        <span class="date">${formatDate(post.createdAt)}</span>
+                        <button class="read-more">Read Article →</button>
+                    </div>
+                </div>
+                <div class="featured-image">
+                    <img src="${post.image}" alt="${post.title}" loading="lazy">
+                </div>
+            </div>
+        </article>
+    `;
+}
+
+function renderBlogCard(post) {
+    return `
+        <article class="blog-card" data-post-id="${post._id}">
+            <div class="card-image">
+                <img src="${post.image}" alt="${post.title}" loading="lazy">
+                <span class="category">${post.category}</span>
+            </div>
+            <div class="card-content">
+                <h3>${post.title}</h3>
+                <p>${truncateText(post.content, 100)}</p>
+                <div class="card-footer">
+                    <span class="date">${formatDate(post.createdAt)}</span>
+                    <span class="read-time">${calculateReadTime(post.content)} min read</span>
+                </div>
+            </div>
+        </article>
+    `;
+}
+
+// Helper functions
+function truncateText(text, length) {
+    return text.length > length ? text.substring(0, length) + '...' : text;
+}
+
+function calculateReadTime(content) {
+    const wordsPerMinute = 200;
+    const words = content.trim().split(/\s+/).length;
+    return Math.ceil(words / wordsPerMinute);
+}
+
+// Add this new function to handle navigation
+function navigateToBlogDetail(postId) {
+    window.location.href = `/public/blog-detail.html?id=${postId}`;
+}
+
+// Blog rendering and interaction
+class BlogManager {
+    constructor() {
+        this.apiBaseUrl = 'http://localhost:5000/api';
+        this.initializeBlog();
+    }
+
+    async initializeBlog() {
+        try {
+            // Use the correct endpoint for published posts only
+            const response = await fetch(`${this.apiBaseUrl}/admin/posts?published=true`);
+            const posts = await response.json();
+            
+            // Filter out any duplicate posts by ID
+            const uniquePosts = Array.from(new Map(posts.map(post => [post._id, post])).values());
+            
+            console.log('Fetched posts:', uniquePosts); // Debug log
+            this.renderBlogPosts(uniquePosts);
+            this.addClickHandlers();
+        } catch (error) {
+            console.error('Error loading blog posts:', error);
+        }
+    }
+
+    renderBlogPosts(posts) {
+        const blogContainer = document.querySelector('.blog-posts-section');
+        if (!blogContainer) return;
+
+        // Only render if there are posts
+        if (posts.length === 0) {
+            blogContainer.innerHTML = '<div class="no-posts">No blog posts available.</div>';
+            return;
+        }
+
+        blogContainer.innerHTML = `
+            <div class="blog-grid">
+                ${posts.map(post => `
+                    <article class="blog-card" data-post-id="${post._id}">
+                        <div class="blog-banner-box">
+                            <img src="${post.image}" alt="${post.title}" loading="lazy">
+                        </div>
+                        <div class="blog-content">
+                            <h3 class="blog-title">${post.title}</h3>
+                            <p class="blog-text">${this.truncateText(this.stripHtml(post.content), 150)}</p>
+                            <div class="blog-metadata">
+                                <span class="blog-category">${post.category}</span>
+                                <div class="blog-info">
+                                    <span>${this.formatDate(post.createdAt)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                `).join('')}
+            </div>`;
+    }
+
+    // Add method to strip HTML tags from content preview
+    stripHtml(html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
+    addClickHandlers() {
+        document.querySelectorAll('.blog-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const postId = card.dataset.postId;
+                if (postId) {
+                    window.location.href = `blog-detail.html?id=${postId}`;
+                }
+            });
+        });
+    }
+
+    truncateText(text, length) {
+        return text.length > length ? text.substring(0, length) + '...' : text;
+    }
+
+    formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new BlogManager();
+});
