@@ -1,59 +1,72 @@
-class LoginManager {
+class LoginHandler {
     constructor() {
-        this.form = document.getElementById('loginForm');
-        if (this.form) {
-            this.form.addEventListener('submit', (e) => this.handleLogin(e));
+        this.apiBaseUrl = 'http://localhost:5000/api';
+        this.setupLoginForm();
+    }
+
+    setupLoginForm() {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
-        console.log('LoginManager initialized');
     }
 
     async handleLogin(e) {
         e.preventDefault();
-        console.log('Form submitted');
         
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        console.log('Credentials:', { username, password });
-
         try {
-            const response = await fetch('http://localhost:5000/api/admin/login', {
+            console.log('Attempting login with:', { username });
+
+            const response = await fetch(`${this.apiBaseUrl}/admin/login`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ username, password })
             });
 
-            console.log('Response received:', response.status);
-            
+            console.log('Login response status:', response.status);
             const data = await response.json();
-            console.log('Response data:', data);
+            console.log('Login response data:', data);
 
-            if (response.ok) {
-                console.log('Login successful');
-                // Store the token
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                
-                // Use the full URL path for redirect
-                window.location.href = 'http://localhost:5000/admin/index.html';
-                return false; // Prevent any further form submission
-            } else {
+            if (!response.ok) {
                 throw new Error(data.message || 'Login failed');
             }
-            
+
+            if (!data.token) {
+                throw new Error('No token received from server');
+            }
+
+            // Store the token
+            localStorage.setItem('token', data.token);
+            console.log('Token stored successfully');
+
+            // Since login was successful, redirect directly
+            window.location.href = '/admin/index.html';
+
         } catch (error) {
             console.error('Login error:', error);
-            alert('Login failed: ' + error.message);
+            this.showError(`Login failed: ${error.message}`);
         }
-        return false; // Prevent form submission
+    }
+
+    showError(message) {
+        const errorDiv = document.getElementById('loginError');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = message;
+        }
     }
 }
 
-// Initialize when DOM is loaded
+// Initialize when document is ready
 document.addEventListener('DOMContentLoaded', () => {
-    new LoginManager();
+    new LoginHandler();
 });
 
 // Debug: Check if the script is loaded

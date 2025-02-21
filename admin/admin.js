@@ -1,142 +1,205 @@
 class AdminPanel {
     constructor() {
-        // Remove automatic binding
+        this.apiBaseUrl = 'http://localhost:5000/api';
+        this.token = localStorage.getItem('token');
         this.init();
-        this.attachEventListeners();
-        // Remove the navigation warning
-        window.onbeforeunload = null;
-        this.currentPostId = null; // Track which post is being edited
     }
 
-    init() {
-        // Check authentication
-        const token = localStorage.getItem('token');
-        if (!token) {
-            console.log('No token found in admin.js, redirecting to login');
-            window.location.replace('login.html');
-            return;
+    async init() {
+        try {
+            if (!this.token) {
+                this.redirectToLogin();
+                return;
+            }
+
+            await this.initializeAdmin();
+            this.setupEventListeners();
+            await this.loadPosts();
+            
+            // Show the "New Post" button
+            const newPostBtn = document.getElementById('newPostBtn');
+            if (newPostBtn) {
+                newPostBtn.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Initialization error:', error);
+            if (error.message.includes('401')) {
+                this.redirectToLogin();
+            }
         }
-        console.log('Token found in admin.js, initializing admin panel');
-        
-        // Clear any query parameters from the URL without refreshing
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-        
-        // Initialize the admin panel
-        this.loadPosts();
     }
 
-    attachEventListeners() {
-        // Logout button
+    redirectToLogin() {
+        localStorage.removeItem('token');
+        window.location.replace('/admin/login.html');
+    }
+
+    async initializeAdmin() {
+        // Initialize TinyMCE
+        await tinymce.init({
+            selector: '#content',
+            height: 500,
+            plugins: [
+                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                'preview', 'anchor', 'searchreplace', 'visualblocks', 'code',
+                'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'
+            ],
+            toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+            setup: (editor) => {
+                editor.on('change', () => {
+                    editor.save(); // Sync TinyMCE content with textarea
+                });
+            }
+        });
+    }
+
+    setupEventListeners() {
+        // New Post button
+        const newPostBtn = document.getElementById('newPostBtn');
+        if (newPostBtn) {
+            newPostBtn.addEventListener('click', () => this.showPostForm());
+        }
+
+        // Post form
+        const postForm = document.getElementById('postForm');
+        if (postForm) {
+            postForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.handleSubmitPost(e);
+            });
+        }
+
+        // Cancel button
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.hidePostForm());
+        }
+
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => this.handleLogout());
         }
+    }
 
-        // New post button
-        const newPostBtn = document.getElementById('newPostBtn');
-        if (newPostBtn) {
-            newPostBtn.addEventListener('click', () => this.handleNewPost());
-        }
+    async handleLogout() {
+        localStorage.removeItem('token');
+        window.location.href = '/admin/login.html';
+    }
 
-        // Handle form submission
+    showPostForm() {
         const postForm = document.getElementById('postForm');
-        if (postForm) {
-            postForm.addEventListener('submit', (e) => this.handleSubmitPost(e));
-        }
-
-        // Handle cancel button
-        const cancelBtn = document.getElementById('cancelBtn');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.hidePostForm();
-            });
+        const postsList = document.getElementById('postsList');
+        if (postForm && postsList) {
+            postForm.style.display = 'block';
+            postsList.style.display = 'none';
+            
+            // Reset form and TinyMCE
+            postForm.reset();
+            if (tinymce.get('content')) {
+                tinymce.get('content').setContent('');
+            }
         }
     }
 
     hidePostForm() {
-        const formSection = document.getElementById('postFormSection');
-        if (formSection) {
-            formSection.style.display = 'none';
+        const postForm = document.getElementById('postForm');
+        const postsList = document.getElementById('postsList');
+        if (postForm && postsList) {
+            postForm.style.display = 'none';
+            postsList.style.display = 'block';
         }
-        // Reset form
-        const form = document.getElementById('postForm');
-        if (form) {
-            form.reset();
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.textContent = 'Submit';
-        }
-        this.currentPostId = null;
     }
 
     async handleSubmitPost(e) {
         e.preventDefault();
         
-        const form = e.target;
-        const formData = new FormData(form);
-        const postData = {
-            title: formData.get('title'),
-            content: formData.get('content'),
-            category: formData.get('category'),
-            image: formData.get('image') || ''
-        };
-        
         try {
-            console.log('Sending post data:', postData); // Debug log
+            const form = e.target;
+            const title = form.querySelector('#title').value.trim();
+            const category = form.querySelector('#category').value.trim();
+            let content = tinymce.get('content').getContent().trim();
+            const image = form.querySelector('#image').value.trim();
 
-            const token = localStorage.getItem('token');
-            const url = this.currentPostId 
-                ? `http://localhost:5000/api/admin/posts/${this.currentPostId}`
-                : 'http://localhost:5000/api/admin/posts';
-                
-            const method = this.currentPostId ? 'PUT' : 'POST';
+            if (!title || !category || !content) {
+                throw new Error('Please fill in all required fields');
+            }
 
-            const response = await fetch(url, {
-                method: method,
+            const postData = {
+                title,
+                content,
+                category,
+                image: image || '',
+                published: true
+            };
+
+            const response = await fetch(`${this.apiBaseUrl}/admin/posts`, {
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${this.token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(postData)
             });
 
             const responseData = await response.json();
-            console.log('Response:', responseData); // Debug log
 
             if (!response.ok) {
-                throw new Error(responseData.message || 'Failed to save post');
+                throw new Error(responseData.message || 'Error creating post');
             }
 
-            // Reset form and UI
+            this.showNotification('Post created successfully!', 'success');
             form.reset();
-            this.currentPostId = null;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.textContent = 'Submit';
-            
-            // Hide form and reload posts
+            tinymce.get('content').setContent('');
             this.hidePostForm();
-            this.loadPosts();
-            
-            alert(method === 'PUT' ? 'Post updated successfully' : 'Post created successfully');
+            await this.loadPosts();
 
         } catch (error) {
-            console.error('Error saving post:', error);
-            alert('Failed to save post: ' + error.message);
+            console.error('Post submission error:', error);
+            this.showNotification(error.message, 'error');
+            if (error.message.includes('401')) {
+                this.redirectToLogin();
+            }
         }
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.padding = '15px';
+        notification.style.borderRadius = '5px';
+        notification.style.zIndex = '1000';
+        
+        if (type === 'error') {
+            notification.style.backgroundColor = '#fee2e2';
+            notification.style.color = '#dc2626';
+        } else {
+            notification.style.backgroundColor = '#dcfce7';
+            notification.style.color = '#16a34a';
+        }
+
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
     }
 
     async loadPosts() {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/admin/posts', {
+            const response = await fetch(`${this.apiBaseUrl}/admin/posts`, {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${this.token}`,
                     'Content-Type': 'application/json'
                 }
             });
             
             if (!response.ok) {
+                if (response.status === 401) {
+                    this.redirectToLogin();
+                    return;
+                }
                 throw new Error('Failed to load posts');
             }
 
@@ -144,6 +207,9 @@ class AdminPanel {
             this.displayPosts(posts);
         } catch (error) {
             console.error('Error loading posts:', error);
+            if (error.message.includes('401')) {
+                this.redirectToLogin();
+            }
         }
     }
 
@@ -179,12 +245,6 @@ class AdminPanel {
             .replace(/'/g, "&#039;");
     }
 
-    handleLogout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.replace('login.html');
-    }
-
     handleNewPost() {
         const formSection = document.getElementById('postFormSection');
         if (formSection) {
@@ -195,37 +255,49 @@ class AdminPanel {
     async editPost(postId) {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/admin/posts/${postId}`, {
+            const response = await fetch(`${this.apiBaseUrl}/admin/posts/${postId}`, {
+                method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            if (!response.ok) throw new Error('Failed to fetch post');
+            if (!response.ok) {
+                throw new Error('Failed to fetch post');
+            }
 
             const post = await response.json();
             
-            // Show form and fill with post data
-            const formSection = document.getElementById('postFormSection');
-            formSection.style.display = 'block';
+            // Show the form
+            const postForm = document.getElementById('postForm');
+            postForm.style.display = 'block';
             
-            // Fill form with post data
-            document.getElementById('title').value = post.title;
-            document.getElementById('category').value = post.category;
-            document.getElementById('content').value = post.content;
+            // Fill the form with post data
+            document.getElementById('title').value = post.title || '';
+            document.getElementById('category').value = post.category || '';
             document.getElementById('image').value = post.image || '';
-
-            // Store the current post ID
-            this.currentPostId = postId;
             
-            // Change form submit button text
-            const submitBtn = document.querySelector('#postForm button[type="submit"]');
-            if (submitBtn) submitBtn.textContent = 'Update Post';
+            // Set content in TinyMCE
+            if (tinymce.get('content')) {
+                tinymce.get('content').setContent(post.content || '');
+            }
+
+            // Store the post ID for updating
+            postForm.dataset.postId = postId;
+            
+            // Change submit button text
+            const submitBtn = postForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = 'Update Post';
+            }
+
+            // Hide posts list
+            document.getElementById('postsList').style.display = 'none';
 
         } catch (error) {
             console.error('Error editing post:', error);
-            alert('Failed to edit post: ' + error.message);
+            this.showNotification('Error loading post for editing', 'error');
         }
     }
 
@@ -285,7 +357,7 @@ class AdminPanel {
 let adminPanel;
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     adminPanel = new AdminPanel();
 });
 
@@ -327,4 +399,29 @@ style.textContent = `
         }
     }
 `;
-document.head.appendChild(style); 
+document.head.appendChild(style);
+
+// Initialize TinyMCE
+function initTinyMCE() {
+    tinymce.init({
+        selector: '#content',
+        height: 500,
+        plugins: [
+            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+            'insertdatetime', 'media', 'table', 'help', 'wordcount'
+        ],
+        toolbar: 'undo redo | blocks | ' +
+            'bold italic backcolor | alignleft aligncenter ' +
+            'alignright alignjustify | bullist numlist outdent indent | ' +
+            'removeformat | help',
+        content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
+    });
+}
+
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', () => {
+    initTinyMCE();
+    const admin = new AdminPanel();
+    admin.validateToken(); 
+}); 

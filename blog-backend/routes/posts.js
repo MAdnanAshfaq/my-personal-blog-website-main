@@ -28,7 +28,7 @@ router.post('/', async (req, res) => {
     const post = new Post({
         title: req.body.title,
         content: req.body.content,
-        author: req.body.author,
+        author: req.body.author || 'Anonymous',
         tags: req.body.tags,
         imageUrl: req.body.imageUrl
     });

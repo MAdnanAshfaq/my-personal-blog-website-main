@@ -13,6 +13,27 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; // In production
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // In production, use hashed password
 
+// Middleware to verify token
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
+// Apply verifyToken middleware to all admin routes
+router.use(verifyToken);
+
 // Login route
 router.post('/login', async (req, res) => {
     try {
@@ -64,36 +85,62 @@ router.use(auth); // Move this AFTER the login route
 // Protected routes below
 router.post('/posts', async (req, res) => {
     try {
-        console.log('Received post data:', req.body); // Debug log
+        console.log('Received post data:', req.body);
 
         const { title, content, category, image } = req.body;
 
-        // Validate required fields
-        if (!title || !content || !category) {
+        // Detailed validation logging
+        const validationErrors = [];
+        if (!title) validationErrors.push('Title is required');
+        if (!content) validationErrors.push('Content is required');
+        if (!category) validationErrors.push('Category is required');
+
+        if (validationErrors.length > 0) {
+            console.log('Validation errors:', validationErrors);
             return res.status(400).json({ 
-                message: 'Missing required fields',
-                required: ['title', 'content', 'category'],
+                message: 'Validation failed',
+                errors: validationErrors,
                 received: req.body
             });
         }
 
-        const post = new Post({
-            title,
-            content,
-            category,
-            image: image || '',
-            published: false
+        // Create new post with explicit schema matching
+        const postData = {
+            title: title.trim(),
+            content: content.trim(),
+            category: category.trim(),
+            image: image ? image.trim() : '',
+            published: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        console.log('Attempting to save post with data:', postData);
+
+        const post = new Post(postData);
+        const savedPost = await post.save();
+        
+        console.log('Post saved successfully:', savedPost);
+
+        // Send success response with created post
+        res.status(201).json(savedPost);
+
+    } catch (error) {
+        // Detailed error logging
+        console.error('Error creating post:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
         });
 
-        const savedPost = await post.save();
-        console.log('Saved post:', savedPost); // Debug log
-
-        res.status(201).json(savedPost);
-    } catch (error) {
-        console.error('Error creating post:', error);
+        // Send appropriate error response
         res.status(500).json({ 
-            message: 'Error creating post',
-            error: error.message 
+            message: 'Error creating post', 
+            error: error.message,
+            details: process.env.NODE_ENV === 'development' ? {
+                name: error.name,
+                stack: error.stack
+            } : undefined
         });
     }
 });

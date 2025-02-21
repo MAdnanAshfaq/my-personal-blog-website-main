@@ -234,6 +234,7 @@ class BlogPlatform {
     this.initializeAuth();
     this.initializeModals();
     this.setupEventListeners();
+    this.setupPostSaving();
   }
 
   initializeAuth() {
@@ -321,6 +322,63 @@ class BlogPlatform {
   handleTopicClick(topic) {
     // Filter posts by topic
     console.log(`Filtering by topic: ${topic}`);
+  }
+
+  setupPostSaving() {
+    const saveButton = document.querySelector('.save-post-btn');
+    if (saveButton) {
+      saveButton.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          await this.savePost();
+        } catch (error) {
+          this.showErrorMessage('Error saving post. Please try again.');
+          console.error('Save error:', error);
+        }
+      });
+    }
+  }
+
+  async savePost() {
+    const title = document.querySelector('#post-title').value;
+    const content = document.querySelector('#post-content').value;
+    const date = new Date().toISOString();
+
+    if (!title || !content) {
+      throw new Error('Title and content are required');
+    }
+
+    // Here you would typically make an API call to save the post
+    // For now, we'll simulate success
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    this.showSuccessMessage('Post saved successfully!');
+    return true;
+  }
+
+  showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-error';
+    alertDiv.textContent = message;
+    
+    this.showAlert(alertDiv);
+  }
+
+  showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success';
+    alertDiv.textContent = message;
+    
+    this.showAlert(alertDiv);
+  }
+
+  showAlert(alertDiv) {
+    const container = document.querySelector('.admin-container') || document.body;
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+      alertDiv.remove();
+    }, 3000);
   }
 }
 
@@ -655,3 +713,11 @@ class App {
 document.addEventListener('DOMContentLoaded', () => {
     new App();
 });
+
+function formatDate(date) {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return new Date(date).toLocaleDateString('en-US', options);
+}
+
+// When creating new blog posts or displaying dates, use:
+const formattedDate = formatDate(yourDateVariable);

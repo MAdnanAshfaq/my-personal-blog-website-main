@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 
+// Clear the existing model if it exists
+mongoose.models = {};
+mongoose.modelSchemas = {};
+
 const postSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -10,26 +14,24 @@ const postSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    author: {
-        type: String,
-        required: true
-    },
-    tags: [{
-        type: String,
-        trim: true
-    }],
     category: {
         type: String,
         required: true,
-        enum: ['Technology', 'Lifestyle', 'Travel']
+        enum: ['Technology', 'Lifestyle', 'Travel', 'Other']
     },
     image: {
         type: String,
-        required: false
+        default: ''
+    },
+    // Make sure author is optional
+    author: {
+        type: String,
+        required: false,
+        default: 'Admin'
     },
     published: {
         type: Boolean,
-        default: false
+        default: true
     },
     searchKeywords: [String], // For better search functionality
     commentCount: {
@@ -45,7 +47,8 @@ const postSchema = new mongoose.Schema({
         default: Date.now
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    versionKey: false
 });
 
 // Add text search index
@@ -61,5 +64,10 @@ postSchema.pre('save', function(next) {
     this.updatedAt = Date.now();
     next();
 });
+
+// Clear any existing model and create a new one
+if (mongoose.models.Post) {
+    delete mongoose.models.Post;
+}
 
 module.exports = mongoose.model('Post', postSchema); 
